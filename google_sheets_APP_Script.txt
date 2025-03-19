@@ -1,0 +1,155 @@
+function doGet(e) {
+  console.log("start Custom Actions API test");
+  console.log("e: " + JSON.stringify(e));
+
+  if (!e || !e.parameter) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ "error": "Invalid request. No parameters provided." })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var domain = e.parameter.domain || 'English'; // Default to 'English' if no domain specified
+  var user = e.parameter.user || 'A'; // Default to 'A' if no user specified
+  var action = e.parameter.action;
+  
+  var sheetName = domain + '-' + user;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var activeSheet = ss.getSheetByName(sheetName);
+  
+  if (!activeSheet) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ "error": "Invalid sheet name." })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  switch(action) {
+    case 'add':
+      return addWords(e, activeSheet);
+    case 'get':
+      return getRecentWords(e, activeSheet);
+    default:
+      return ContentService.createTextOutput(
+        JSON.stringify({ "error": "Invalid action." })
+      ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function addWords(e, sheet) {
+  var wordsParam = e.parameter.words;
+  if (!wordsParam) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ "error": "No words provided." })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var words = wordsParam.split(',').map(word => word.trim());
+  var today = Utilities.formatDate(new Date(), "GMT", "yyyyMMdd");
+  
+  var existingWords = sheet.getRange("A:A").getValues().flat().filter(String);
+  var addedWords = [];
+  var duplicateWords = [];
+
+  words.forEach(word => {
+    if (existingWords.includes(word)) {
+      duplicateWords.push(word);
+    } else {
+      sheet.appendRow([word, 0, today]);
+      addedWords.push(word);
+      existingWords.push(word);
+    }
+  });
+
+  var response = {
+    "added": addedWords,
+    "duplicates": duplicateWords
+  };
+
+  return ContentService.createTextOutput(
+    JSON.stringify(response)
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getRecentWords(e, sheet) {
+  var count = parseInt(e.parameter.count) || 10; // Default to 10 if not specified
+  var data = sheet.getDataRange().getValues();
+  var words = [];
+  var today = Utilities.formatDate(new Date(), "GMT", "yyyyMMdd");
+
+  // Remove header row if present
+  if (data[0][0] === "Word" || data[0][0] === "word") {
+    data.shift();
+  }
+
+  // Sort by last review date, oldest first
+  data.sort((a, b) => a[2] - b[2]);
+
+  // Select all words that are due for review (you can adjust this logic if needed)
+  var candidateWords = data.filter(row => row[2] !== today);
+
+  // If we have more candidate words than requested, randomly select from them
+  if (candidateWords.length > count) {
+    candidateWords = shuffleArray(candidateWords).slice(0, count);
+  } else {
+    // If we don't have enough candidates, use all of them
+    count = candidateWords.length;
+  }
+
+  // Process the selected words
+  for (var i = 0; i < count; i++) {
+    var rowIndex = data.findIndex(row => row[0] === candidateWords[i][0]);
+    words.push({
+      word: candidateWords[i][0],
+      reviewCount: candidateWords[i][1] + 1, // Increment review count
+      lastReviewDate: today
+    });
+    
+    // Update the review count and date in the sheet
+    sheet.getRange(rowIndex + 1, 2).setValue(candidateWords[i][1] + 1);
+    sheet.getRange(rowIndex + 1, 3).setValue(today);
+  }
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ "words": words })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Helper function to shuffle an array
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function testDoGet() {
+  // Test adding multiple words
+  var addResult = doGet({
+    parameter: {
+      action: 'add',
+      domain: 'Japanese',
+      user: 'ringo',
+      words: 'apple,banana,cherry,apple,date'
+    }
+  });
+  Logger.log("Add words result: " + addResult.getContent());
+  
+  // Test getting words
+  var getResult = doGet({
+    parameter: {
+      action: 'get',
+      domain: 'Japanese',
+      user: 'orange',
+      count: '5'
+    }
+  });
+  Logger.log("Get words result: " + getResult.getContent());
+  
+  // Test error case
+  var errorResult = doGet({
+    parameter: {
+      action: 'invalid'
+    }
+  });
+  Logger.log("Error result: " + errorResult.getContent());
+}

@@ -1,0 +1,141 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Multi-domain Vocabulary Management API",
+    "description": "API for managing vocabulary words across different domains and users",
+    "version": "v2.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://script.google.com"
+    }
+  ],
+  "paths": {
+    "/macros/s/{put the google sheet ID here}/exec": {
+      "get": {
+        "description": "Add new words or get recent words across different domains",
+        "operationId": "ManageVocabulary",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain (English, Japanese, or Music)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["English", "Japanese", "Music"]
+            }
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "description": "User identifier (A or B)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["A", "B"]
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Action to perform (add or get)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["add", "get"]
+            }
+          },
+          {
+            "name": "words",
+            "in": "query",
+            "description": "Comma-separated list of words to add (required for 'add' action)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of words to retrieve (for 'get' action)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AddWordsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetWordsResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddWordsResponse": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of words successfully added"
+          },
+          "duplicates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of words that were not added due to being duplicates"
+          }
+        }
+      },
+      "GetWordsResponse": {
+        "type": "object",
+        "properties": {
+          "words": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "word": {
+                  "type": "string",
+                  "description": "The vocabulary word or music term"
+                },
+                "reviewCount": {
+                  "type": "integer",
+                  "description": "Number of times the word has been reviewed"
+                },
+                "lastReviewDate": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "Date of the last review in YYYYMMDD format"
+                }
+              }
+            },
+            "description": "List of retrieved words with review information"
+          }
+        }
+      }
+    }
+  }
+}
