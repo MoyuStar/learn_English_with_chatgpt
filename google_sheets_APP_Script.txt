@@ -128,7 +128,7 @@ function testDoGet() {
     parameter: {
       action: 'add',
       domain: 'Japanese',
-      user: 'ringo',
+      user: 'B',
       words: 'apple,banana,cherry,apple,date'
     }
   });
@@ -139,7 +139,7 @@ function testDoGet() {
     parameter: {
       action: 'get',
       domain: 'Japanese',
-      user: 'orange',
+      user: 'A',
       count: '5'
     }
   });
